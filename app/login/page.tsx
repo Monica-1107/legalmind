@@ -49,7 +49,7 @@ export default function LoginPage() {
 
                 {/* Login Button */}
                 <Button className="w-full bg-gold-500 hover:bg-gold-600 transition duration-300 shadow-lg shadow-gold-500/50">
-                  Login
+                  login
                 </Button>
               </form>
 
