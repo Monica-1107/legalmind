@@ -101,7 +101,7 @@ export default function SignUpPage() {
                   <option value="" disabled>
                     Select a Security Question
                   </option>
-                  <option>What is your mother's maiden name?</option>
+                  <option>What is your mother's name?</option>
                   <option>What was your first pet's name?</option>
                   <option>What is your favorite movie?</option>
                 </select>
