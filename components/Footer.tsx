@@ -69,7 +69,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 text-center">
-          <p>&copy; 2023 LegalMind. All rights reserved...</p>
+          <p>&copy; 2023 LegalMind. All rights reservedbcd</p>
         </div>
       </div>
     </footer>
