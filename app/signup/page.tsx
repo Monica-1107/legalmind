@@ -96,8 +96,9 @@ export default function SignUpPage() {
                 <select
                   className="w-full pl-10 bg-transparent border border-gray-600 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 transition duration-300 text-gray-400"
                   required
+                  defaultValue=""
                 >
-                  <option value="" disabled selected>
+                  <option value="" disabled>
                     Select a Security Question
                   </option>
                   <option>What is your mother's maiden name?</option>
