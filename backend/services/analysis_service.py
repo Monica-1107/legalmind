@@ -65,34 +65,22 @@ def extract_key_points(response):
 
 def call_openrouter_api(prompt):
     """Call OpenRouter API to generate text"""
-    headers = {
-        "Authorization": f"Bearer {Config.OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://legalmind.app"  # Replace with your actual domain
-    }
-    
-    data = {
-        "model": Config.DEFAULT_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a legal expert analyzing legal documents."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.1,  # Low temperature for more deterministic responses
-        "max_tokens": 4000
-    }
-    
-    try:
-        response = requests.post(
-            Config.OPENROUTER_API_URL,
-            headers=headers,
-            json=data
-        )
-        response.raise_for_status()
-        
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    except Exception as e:
-        raise Exception(f"Error calling OpenRouter API: {str(e)}")
+    response = requests.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {Config.OPENROUTER_API_KEY}',
+            'HTTP-Referer': 'https://legalmind.app'
+        },
+        json={
+            'model': Config.DEFAULT_MODEL,
+            'messages': [
+                {'role': 'system', 'content': 'You are a legal expert analyzing legal documents.'},
+                {'role': 'user', 'content': prompt}
+            ]
+        }
+    )
+    return response.json()['choices'][0]['message']['content']
 
 def create_standard_analysis_prompt(content):
     """Create a prompt for standard document analysis"""

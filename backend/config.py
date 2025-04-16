@@ -25,3 +25,23 @@ class Config:
     # Analysis configuration
     DEFAULT_ANALYSIS_MODE = 'standard'
     DEFAULT_ANALYSIS_LEVEL = 1
+    
+    # Advanced Analysis Configuration
+    # Embedding model
+    EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+    
+    # Text chunking parameters
+    CHUNK_SIZE = int(os.environ.get('CHUNK_SIZE', '500'))
+    CHUNK_OVERLAP = int(os.environ.get('CHUNK_OVERLAP', '100'))
+    
+    # FAISS index settings
+    FAISS_INDEX_DIR = os.environ.get('FAISS_INDEX_DIR', os.path.join(os.getcwd(), 'faiss_indices'))
+    
+    # NER model
+    NER_MODEL = os.environ.get('NER_MODEL', 'en_legal_ner_trf')
+    
+    # LLM model for analysis
+    ANALYSIS_MODEL = os.environ.get('ANALYSIS_MODEL', 'meta-llama/llama-3-70b-instruct')
+    
+    # Similarity threshold for document relevance
+    SIMILARITY_THRESHOLD = float(os.environ.get('SIMILARITY_THRESHOLD', '0.7'))

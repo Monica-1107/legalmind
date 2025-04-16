@@ -1,153 +1,339 @@
-# Legal Mind Backend
-
-A powerful backend service for legal document analysis and management.
+# Legal Mind Backend API Documentation
 
 ## Overview
+Legal Mind is an advanced legal document analysis system that provides intelligent document processing, query analysis, and knowledge graph generation for legal documents. This document provides comprehensive information about the backend API endpoints and integration guidelines.
 
-Legal Mind is a document analysis platform designed specifically for legal professionals. It provides tools for uploading, analyzing, and interacting with legal documents through AI-powered analysis and chat functionality.
-
-## Features
-
-- **Document Upload & Management**: Upload and manage legal documents in various formats (PDF, DOCX)
-- **Document Analysis**: Analyze documents with different modes (standard, hypothetical, hierarchical)
-- **AI-Powered Chat**: Interact with documents through a conversational interface
-- **Metadata Extraction**: Automatically extract metadata from legal documents
-- **Knowledge Graph Visualization**: Generate and visualize knowledge graphs from documents and chat sessions
-- **RESTful API**: Well-structured API endpoints for integration with frontend applications
-
-## Project Structure
-
-```
-backend/
-├── app.py                 # Main application entry point
-├── config.py              # Configuration settings
-├── database.py            # Database connection and operations
-├── requirements.txt       # Python dependencies
-├── .env                   # Environment variables (not in version control)
-├── models/                # Data models
-├── services/              # Business logic services
-│   ├── document_service.py    # Document processing
-│   ├── analysis_service.py    # Document analysis
-│   ├── chat_service.py        # Chat functionality
-│   └── knowledge_graph_service.py  # Knowledge graph generation
-├── utils/                 # Utility functions
-├── uploads/               # Document storage
-│   └── knowledge_graphs/  # Knowledge graph visualizations
-└── tests/                 # Test suite
-    ├── conftest.py            # Test configuration
-    ├── test_app.py            # API tests
-    ├── test_services.py       # Service tests
-    └── test_files/            # Test document files
-```
+## Table of Contents
+1. [Setup](#setup)
+2. [Environment Variables](#environment-variables)
+3. [API Endpoints](#api-endpoints)
+4. [Data Models](#data-models)
+5. [Integration Guidelines](#integration-guidelines)
+6. [Error Handling](#error-handling)
 
 ## Setup
 
 ### Prerequisites
-
 - Python 3.8+
 - MongoDB
-- Virtual environment (recommended)
+- FAISS for vector similarity search
+- Required Python packages (see requirements.txt)
 
 ### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/Monica-1107/legalmind.git
-   cd legal-mind/backend
-   ```
+# Install dependencies
+pip install -r requirements.txt
 
-2. Create and activate a virtual environment:
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+```
 
-3. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-4. Create a `.env` file with the following variables:
-   ```
-   MONGODB_URI=mongodb://localhost:27017/legal_mind
-   UPLOAD_FOLDER=uploads
-   OPENROUTER_API_KEY=your_api_key
-   OPENROUTER_API_URL=https://openrouter.ai/api/v1/chat/completions
-   DEFAULT_MODEL=anthropic/claude-3-opus-20240229
-   ```
-
-5. Start the application:
-   ```
-   python app.py
-   ```
+## Environment Variables
+```
+MONGODB_URI=your_mongodb_uri
+OPENROUTER_API_KEY=your_openrouter_api_key
+UPLOAD_FOLDER=path_to_upload_folder
+FAISS_INDEX_DIR=path_to_faiss_indices
+DEFAULT_MODEL=your_preferred_model
+NER_MODEL=en_core_web_sm
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+```
 
 ## API Endpoints
 
-### Health Check
-- `GET /api/health`: Check if the API is running
-
 ### Document Management
-- `POST /api/upload`: Upload a new document
-- `GET /api/documents`: Get all documents
-- `GET /api/documents/<doc_id>`: Get a specific document
-- `GET /api/documents/<doc_id>/download`: Download a document
+
+#### Upload Document
+```
+POST /api/documents/upload
+Content-Type: multipart/form-data
+
+Parameters:
+- file: File (PDF/DOCX)
+
+Response:
+{
+    "document_id": "string",
+    "filename": "string",
+    "status": "success",
+    "message": "string"
+}
+```
+
+#### Get Document
+```
+GET /api/documents/{document_id}
+
+Response:
+{
+    "document_id": "string",
+    "filename": "string",
+    "content": "string",
+    "metadata": {
+        "upload_date": "string",
+        "file_type": "string",
+        "size": "number"
+    }
+}
+```
 
 ### Document Analysis
-- `POST /api/documents/<doc_id>/analyze`: Analyze a document
-  - Modes: standard, hypothetical, hierarchical
-  - Levels: 1-3 (for hierarchical mode)
 
-### Chat
-- `POST /api/chat`: Chat with a document or get general legal advice
+#### Analyze Document
+```
+POST /api/analysis/document/{document_id}
+
+Parameters:
+{
+    "analysis_mode": "standard|hypothetical|hierarchical",
+    "analysis_level": number (1-3, for hierarchical mode),
+    "hypothetical_scenario": {
+        "facts": "string",
+        "arguments": "string",
+        "precedents": "string"
+    } (optional)
+}
+
+Response:
+{
+    "analysis_id": "string",
+    "document_id": "string",
+    "analysis_mode": "string",
+    "content": "string",
+    "timestamp": "string",
+    "key_points": ["string"],
+    "entities": {
+        "PERSON": ["string"],
+        "ORG": ["string"],
+        "LAW": ["string"]
+    }
+}
+```
+
+#### Query Analysis
+```
+POST /api/analysis/query
+
+Parameters:
+{
+    "query": "string",
+    "document_id": "string",
+    "query_type": "standard_analysis|legal_query"
+}
+
+Response:
+{
+    "is_relevant": boolean,
+    "response": "string",
+    "relevant_chunks": ["string"],
+    "entities": {
+        "PERSON": ["string"],
+        "ORG": ["string"],
+        "LAW": ["string"]
+    }
+}
+```
 
 ### Knowledge Graph
-- `POST /api/documents/graph`: Generate a knowledge graph from one or more documents
-- `POST /api/chat/graph`: Generate a knowledge graph from chat history
-- `GET /api/graphs/<graph_id>`: Get a knowledge graph by ID
-- `GET /api/graphs/<graph_id>/visualization`: Get the visualization image for a knowledge graph
 
-## Knowledge Graph Feature
-
-The knowledge graph feature provides two main functionalities:
-
-1. **Document-based Knowledge Graphs**: Generate visual representations of the relationships between entities in one or more legal documents. This helps users understand the document structure and key relationships.
-
-2. **Chat-based Knowledge Graphs**: Create graphs that visualize the flow of conversation and the entities mentioned during a chat session. This provides insights into the discussion and helps track important concepts.
-
-Each chat response includes a "view graph" option that allows users to generate a knowledge graph based on the current chat session and referenced documents.
-
-## Testing
-
-Run the test suite:
+#### Generate Document Graph
 ```
-python -m pytest
-```
+POST /api/graphs/document/{document_id}
 
-Run specific tests:
-```
-python -m pytest tests/test_app.py
+Response:
+{
+    "graph_id": "string",
+    "nodes": [
+        {
+            "id": "string",
+            "label": "string",
+            "type": "string"
+        }
+    ],
+    "edges": [
+        {
+            "source": "string",
+            "target": "string",
+            "label": "string"
+        }
+    ]
+}
 ```
 
-## Deployment
+#### Generate Chat Graph
+```
+POST /api/graphs/chat/{chat_session_id}
 
-For production deployment:
+Response:
+{
+    "graph_id": "string",
+    "nodes": [...],
+    "edges": [...]
+}
+```
 
-1. Set up a production MongoDB instance
-2. Configure environment variables for production
-3. Use a production-grade WSGI server like Gunicorn:
-   ```
-   gunicorn app:app
-   ```
-4. Set up a reverse proxy (Nginx, Apache) for production use
+## Data Models
 
-## Contributing
+### Document Model
+```typescript
+interface Document {
+    document_id: string;
+    filename: string;
+    content: string;
+    metadata: {
+        upload_date: string;
+        file_type: string;
+        size: number;
+    };
+    entities: {
+        [entity_type: string]: string[];
+    };
+}
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+### Analysis Result Model
+```typescript
+interface AnalysisResult {
+    analysis_id: string;
+    document_id: string;
+    analysis_mode: 'standard' | 'hypothetical' | 'hierarchical';
+    content: string;
+    timestamp: string;
+    key_points?: string[];
+    entities: {
+        [entity_type: string]: string[];
+    };
+}
+```
 
-## License
+### Graph Model
+```typescript
+interface Graph {
+    graph_id: string;
+    nodes: Array<{
+        id: string;
+        label: string;
+        type: string;
+    }>;
+    edges: Array<{
+        source: string;
+        target: string;
+        label: string;
+    }>;
+}
+```
 
-[MIT License](LICENSE) 
+## Integration Guidelines
+
+### Authentication
+- All API endpoints require an Authorization header with a Bearer token
+- Token format: `Authorization: Bearer <your_api_token>`
+
+### Error Handling
+The API uses standard HTTP status codes:
+- 200: Success
+- 400: Bad Request
+- 401: Unauthorized
+- 404: Not Found
+- 500: Internal Server Error
+
+Error responses follow this format:
+```json
+{
+    "error": {
+        "code": "string",
+        "message": "string",
+        "details": {}
+    }
+}
+```
+
+### Best Practices
+1. **Document Processing**
+   - Support for PDF and DOCX files only
+   - Maximum file size: 10MB
+   - Use document_id for all subsequent operations
+
+2. **Query Analysis**
+   - Keep queries focused and specific
+   - Include relevant context in queries
+   - Handle both relevant and irrelevant query responses
+
+3. **Graph Visualization**
+   - Use force-directed layout for graph rendering
+   - Implement zoom and pan controls
+   - Color-code different node types
+   - Support graph export in various formats
+
+4. **Performance Considerations**
+   - Implement client-side caching for document content
+   - Use pagination for large result sets
+   - Handle long-running operations with progress indicators
+
+## Example Integration Code
+
+### Document Upload
+```typescript
+async function uploadDocument(file: File): Promise<DocumentResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/documents/upload', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiToken}`
+        },
+        body: formData
+    });
+
+    return await response.json();
+}
+```
+
+### Query Analysis
+```typescript
+async function analyzeQuery(query: string, documentId: string): Promise<AnalysisResponse> {
+    const response = await fetch('/api/analysis/query', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query,
+            document_id: documentId,
+            query_type: 'standard_analysis'
+        })
+    });
+
+    return await response.json();
+}
+```
+
+### Graph Visualization
+```typescript
+function renderGraph(graphData: Graph) {
+    // Example using D3.js
+    const svg = d3.select('#graph-container')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    const simulation = d3.forceSimulation(graphData.nodes)
+        .force('link', d3.forceLink(graphData.edges).id(d => d.id))
+        .force('charge', d3.forceManyBody())
+        .force('center', d3.forceCenter(width / 2, height / 2));
+
+    // Add nodes and edges rendering code...
+}
+```
+
+## Support
+For technical support or questions, contact:
+- Email: support@legalmind.app
+- Documentation: https://docs.legalmind.app
+- API Status: https://status.legalmind.app 
