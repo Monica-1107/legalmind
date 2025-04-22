@@ -65,6 +65,7 @@ def extract_key_points(response):
 
 def call_openrouter_api(prompt):
     """Call OpenRouter API to generate text"""
+    print(prompt,'prompt')
     response = requests.post(
         'https://openrouter.ai/api/v1/chat/completions',
         headers={
@@ -75,7 +76,7 @@ def call_openrouter_api(prompt):
         json={
             'model': Config.DEFAULT_MODEL,
             'messages': [
-                {'role': 'system', 'content': 'You are a legal expert analyzing legal documents.'},
+                {'role': 'system', 'content': 'You are the best indian legal expert analyzing legal documents.'},
                 {'role': 'user', 'content': prompt}
             ]
         }
@@ -127,17 +128,38 @@ def create_hypothetical_analysis_prompt(content, scenario):
 def create_hierarchical_analysis_prompt(content, level):
     """Create a prompt for hierarchical analysis at specified level"""
     if level == 1:
-        detail_instruction = "Provide an executive summary (1-2 paragraphs covering only the most essential points)"
+        detail_instruction = "I am a general citizen ,avoid jargons and complex legal terms,Provide an executive summary (1-2 paragraphs covering only the most essential points)"
     elif level == 2:
-        detail_instruction = "Provide a detailed breakdown including main arguments, critical precedents, and procedural history"
+        detail_instruction = "I am law student, if any jargons are used do explain them and make sure it is knowledgeable,Provide a detailed breakdown including main arguments, critical precedents, and procedural history"
     else:  # level 3
-        detail_instruction = "Provide a comprehensive review with full legal analysis, statutory references, and complete citations"
-    
+        detail_instruction = "As a Supreme Court lawyer, I need a comprehensive review with full legal analysis, statutory references, and complete citations."
+
     return f"""
-    Please analyze this legal document. {detail_instruction}.
-    
+    Please analyze this legal document with expert legal precision. {detail_instruction}
+
     Document content:
     {content}
-    
+
+    In your analysis, please include:
+    1. Summary of key facts and procedural history
+    2. Identification of central legal questions
+    3. Analysis of relevant statutory provisions and case law
+    4. Examination of legal reasoning employed
+    5. Assessment of precedential value and implications
+    6. Any potential counter-arguments or weaknesses in the reasoning
+
     Format your response in markdown with appropriate headings and structure for the level of detail requested.
     """
+    
+    
+    # else:  # level 3
+    #     detail_instruction = "I am supreme court lawyer,Provide a comprehensive review with full legal analysis, statutory references, and complete citations"
+    
+    # return f"""
+    # Please analyze this legal document. {detail_instruction}.
+    
+    # Document content:
+    # {content}
+    
+    # Format your response in markdown with appropriate headings and structure for the level of detail requested.
+    # """

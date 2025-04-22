@@ -1,6 +1,2 @@
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
-
 from .document import Document
-from .chat import ChatMessage
+# ChatMessage import removed since it was SQLAlchemy-based and will be replaced with a MongoDB version

@@ -1,62 +1,74 @@
 import os
 import PyPDF2
-import docx
+from docx import Document as DocxDocument
 from datetime import datetime
+from models.document import Document
+from database import documents, db
 
-def process_document(file_path, original_filename):
+def process_document(file_path, file_type):
     """
     Process an uploaded document to extract text and metadata
     
     Args:
         file_path (str): Path to the uploaded file
-        original_filename (str): Original filename
+        file_type (str): MIME type of the file
         
     Returns:
-        dict: Document information including content and metadata
+        str: Document ID
     """
-    file_extension = os.path.splitext(file_path)[1].lower()
-    
-    # Extract content based on file type
     content = ""
-    metadata = {
-        "filename": original_filename,
-        "processed_at": datetime.now().isoformat(),
-        "file_size": os.path.getsize(file_path),
-        "file_type": file_extension[1:]  # Remove the dot from extension
-    }
+    metadata = {}
+    title = os.path.basename(file_path)  # Default title is the filename
     
     try:
-        if file_extension == '.pdf':
+        # Extract content based on file type
+        if file_type == 'application/pdf':
             content, pdf_metadata = extract_pdf_content(file_path)
             metadata.update(pdf_metadata)
-        elif file_extension in ['.docx', '.doc']:
+            # Try to get a better title from PDF metadata
+            if 'title' in pdf_metadata and pdf_metadata['title']:
+                title = pdf_metadata['title']
+        elif file_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
             content, doc_metadata = extract_docx_content(file_path)
             metadata.update(doc_metadata)
-        elif file_extension == '.txt':
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            metadata["page_count"] = len(content.split('\n\n'))
+            # Try to get a better title from DOCX metadata
+            if 'title' in doc_metadata and doc_metadata['title']:
+                title = doc_metadata['title']
         else:
-            raise ValueError(f"Unsupported file type: {file_extension}")
-            
+            raise ValueError(f"Unsupported file type: {file_type}")
+        
+        # Add basic metadata
+        metadata["page_count"] = len(content.split('\n\n'))
+        
+        # Create document
+        document = Document(
+            filename=os.path.basename(file_path),
+            file_path=file_path,
+            file_type=file_type,
+            content=content,
+            metadata=metadata,
+            title=title
+        )
+        
+        # Insert into MongoDB
+        result = documents.insert_one(document.to_dict())
+        
+        return str(result.inserted_id)
+        
     except Exception as e:
         raise Exception(f"Error processing document: {str(e)}")
-    
-    return {
-        "content": content,
-        "metadata": metadata
-    }
 
 def extract_pdf_content(file_path):
     """Extract text and metadata from a PDF file"""
     content = ""
     metadata = {}
     
-    with open(file_path, 'rb') as f:
-        pdf_reader = PyPDF2.PdfReader(f)
+    with open(file_path, 'rb') as file:
+        pdf_reader = PyPDF2.PdfReader(file)
+        
         metadata["page_count"] = len(pdf_reader.pages)
         
-        # Extract document info if available
+        # Extract metadata
         if pdf_reader.metadata:
             info = pdf_reader.metadata
             metadata["author"] = info.author if hasattr(info, 'author') else None
@@ -65,9 +77,8 @@ def extract_pdf_content(file_path):
             metadata["subject"] = info.subject if hasattr(info, 'subject') else None
             metadata["title"] = info.title if hasattr(info, 'title') else None
         
-        # Extract text from all pages
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
+        # Extract text from each page
+        for page in pdf_reader.pages:
             content += page.extract_text() + "\n\n"
     
     return content.strip(), metadata
@@ -77,22 +88,22 @@ def extract_docx_content(file_path):
     content = ""
     metadata = {}
     
-    doc = docx.Document(file_path)
+    doc = DocxDocument(file_path)
+    
     metadata["page_count"] = len(doc.sections)
     metadata["paragraph_count"] = len(doc.paragraphs)
     
-    # Extract core properties if available
-    try:
-        core_props = doc.core_properties
+    # Extract metadata
+    core_props = doc.core_properties
+    if core_props:
         metadata["author"] = core_props.author
         metadata["created"] = core_props.created.isoformat() if core_props.created else None
         metadata["modified"] = core_props.modified.isoformat() if core_props.modified else None
         metadata["title"] = core_props.title
-    except:
-        pass
     
-    # Extract text from all paragraphs
-    for para in doc.paragraphs:
-        content += para.text + "\n"
+    # Extract text from paragraphs
+    for paragraph in doc.paragraphs:
+        if paragraph.text:
+            content += paragraph.text + "\n\n"
     
     return content.strip(), metadata
