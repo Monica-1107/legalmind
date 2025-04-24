@@ -16,89 +16,468 @@ class KnowledgeGraphService:
         self.graph_dir = os.path.join("D:/Legal_mind/backend/services/upload_know","graphs")
         os.makedirs(self.graph_dir, exist_ok=True)
     
+    # def generate_document_graph(self, documents, graph_name=None, domain="legal"):
+    #     """
+    #     Generate a knowledge graph from one or more legal documents.
+        
+    #     Args:
+    #         documents (list): List of document objects with content and metadata
+    #         graph_name (str, optional): Custom name for the graph. Defaults to None.
+    #         domain (str, optional): Domain context for entity extraction. Defaults to "legal".
+            
+    #     Returns:
+    #         dict: Graph data with nodes and edges for visualization
+    #     """
+    #     import spacy
+    #     legal_nlp = spacy.load('en_legal_ner_trf')
+    #     preamble_spiltting_nlp = spacy.load('en_core_web_sm')
+    #     run_type = 'sent'  # trade off between accuracy and runtime
+    #     do_postprocess = True
+    #     combined_doc = extract_entities_from_judgment_text(documents[0]["content"], legal_nlp, preamble_spiltting_nlp, run_type, do_postprocess)
+    #     doc_data = combined_doc.to_json()
+    #     print(combined_doc.ents,'line37 knowledge graph')
+    #     # Extract nodes (entities)
+    #     nodes = []
+    #     node_ids = set()
+    #     for ent in combined_doc.ents:
+    #         node_id = f"{ent.label_}:{ent.start_char}:{ent.end_char}"
+    #         if node_id not in node_ids:
+    #             nodes.append({
+    #                 "id": node_id,
+    #                 "label": ent.text,
+    #                 "type": ent.label_
+    #             })
+    #             node_ids.add(node_id)
+
+    #     # Define possible relation types between entity pairs
+    #     entity_relation_map = {
+    #         ("PETITIONER", "CASE_NUMBER"): "files",
+    #         ("RESPONDENT", "PETITIONER"): "opposes",
+    #         ("JUDGE", "COURT"): "presides",
+    #         ("LAWYER", "PETITIONER"): "represents",
+    #         ("LAWYER", "RESPONDENT"): "represents",
+    #         ("JUDGE", "JUDGMENT"): "delivers",
+    #         ("STATUTE", "PROVISION"): "contains",
+    #         ("PRECEDENT", "JUDGMENT"): "cited_in",
+    #         ("ORG", "JUDGMENT"): "mentioned_in",
+    #         ("WITNESS", "CASE_NUMBER"): "testifies_in",
+    #         ("DATE", "JUDGMENT"): "event_date_of",
+    #         ("OTHER_PERSON", "JUDGMENT"): "mentioned_in",
+    #         ("GPE", "JUDGMENT"): "location_of",
+    #         # Add more as needed
+    #     }
+
+    #     # Extract edges (use relation map for labels)
+    #     edges = []
+    #     for i in range(len(combined_doc.ents) - 1):
+    #         source_ent = combined_doc.ents[i]
+    #         target_ent = combined_doc.ents[i + 1]
+    #         source_id = f"{source_ent.label_}:{source_ent.start_char}:{source_ent.end_char}"
+    #         target_id = f"{target_ent.label_}:{target_ent.start_char}:{target_ent.end_char}"
+    #         # Determine relation type
+    #         relation = entity_relation_map.get((source_ent.label_, target_ent.label_), "related")
+    #         edges.append({
+    #             "source": source_id,
+    #             "target": target_id,
+    #             "label": relation
+    #         })
+
+    #     # If spaCy custom relations are present, add them as well
+    #     if hasattr(combined_doc._, 'relations'):
+    #         for rel in combined_doc._.relations:
+    #             source = rel.get('source')
+    #             target = rel.get('target')
+    #             label = rel.get('label', 'related')
+    #             if source and target:
+    #                 edges.append({
+    #                     "source": source,
+    #                     "target": target,
+    #                     "label": label
+    #                 })
+    #     # Prepare output for frontend visualization
+    #     graph_data = {
+    #         "nodes": nodes,
+    #         "edges": edges
+    #     }
+    #     return graph_data
     def generate_document_graph(self, documents, graph_name=None, domain="legal"):
         """
-        Generate a knowledge graph from one or more legal documents.
+        Generate a comprehensive knowledge graph from legal documents for deeper insights.
         
         Args:
             documents (list): List of document objects with content and metadata
-            graph_name (str, optional): Custom name for the graph. Defaults to None.
-            domain (str, optional): Domain context for entity extraction. Defaults to "legal".
-            
+            graph_name (str, optional): Custom name for the graph
+            domain (str, optional): Domain context for entity extraction
+                
         Returns:
             dict: Graph data with nodes and edges for visualization
         """
         import spacy
+        import networkx as nx
+        from collections import defaultdict
+        
+        # Load NER models
         legal_nlp = spacy.load('en_legal_ner_trf')
-        preamble_spiltting_nlp = spacy.load('en_core_web_sm')
-        run_type = 'sent'  # trade off between accuracy and runtime
+        preamble_splitting_nlp = spacy.load('en_core_web_sm')
+        run_type = 'sent'  # For better accuracy
         do_postprocess = True
-        combined_doc = extract_entities_from_judgment_text(documents[0]["content"], legal_nlp, preamble_spiltting_nlp, run_type, do_postprocess)
-
-        # Extract nodes (entities)
+        
+        # Process document with legal NER
+        combined_doc = extract_entities_from_judgment_text(
+            documents[0]["content"], 
+            legal_nlp, 
+            preamble_splitting_nlp, 
+            run_type, 
+            do_postprocess
+        )
+        
+        # Extract nodes (entities) with enhanced attributes
         nodes = []
-        node_ids = set()
+        node_ids = {}  # Map to track entity IDs
+        entity_categories = defaultdict(list)  # Group entities by type
+        
+        # Process entities with more context
         for ent in combined_doc.ents:
-            node_id = f"{ent.label_}:{ent.start_char}:{ent.end_char}"
-            if node_id not in node_ids:
-                nodes.append({
-                    "id": node_id,
-                    "label": ent.text,
-                    "type": ent.label_
-                })
-                node_ids.add(node_id)
-
-        # Define possible relation types between entity pairs
-        entity_relation_map = {
-            ("PETITIONER", "CASE_NUMBER"): "files",
-            ("RESPONDENT", "PETITIONER"): "opposes",
-            ("JUDGE", "COURT"): "presides",
+            # Create a unique identifier using entity type and text to avoid duplicates
+            unique_text = f"{ent.text.strip()}".lower()
+            node_id = f"{ent.label_}:{hash(unique_text)}"
+            
+            # Skip if we already have this exact entity
+            if node_id in node_ids:
+                continue
+                
+            # Store the ID for this entity text 
+            node_ids[node_id] = len(nodes)
+            
+            # Get context for the entity (text surrounding the entity)
+            start_idx = max(0, ent.start_char - 100)
+            end_idx = min(len(combined_doc.text), ent.end_char + 100)
+            context = combined_doc.text[start_idx:end_idx]
+            
+            # Create node with rich attributes
+            node = {
+                "id": node_id,
+                "label": ent.text,
+                "type": ent.label_,
+                "start_char": ent.start_char,
+                "end_char": ent.end_char,
+                "context": context,
+                "paragraph_index": self._get_paragraph_index(combined_doc.text, ent.start_char),
+                "section": self._identify_document_section(combined_doc.text, ent.start_char)
+            }
+            
+            nodes.append(node)
+            entity_categories[ent.label_].append(node_id)
+        
+        # Define relationship patterns based on legal domain knowledge
+        relationship_patterns = {
+            ("JUDGE", "JUDGMENT"): "delivers",
+            ("JUDGE", "COURT"): "presides_in",
+            ("PETITIONER", "RESPONDENT"): "versus",
             ("LAWYER", "PETITIONER"): "represents",
             ("LAWYER", "RESPONDENT"): "represents",
-            ("JUDGE", "JUDGMENT"): "delivers",
-            ("STATUTE", "PROVISION"): "contains",
             ("PRECEDENT", "JUDGMENT"): "cited_in",
-            ("ORG", "JUDGMENT"): "mentioned_in",
+            ("STATUTE", "PROVISION"): "contains",
             ("WITNESS", "CASE_NUMBER"): "testifies_in",
-            ("DATE", "JUDGMENT"): "event_date_of",
+            ("PETITIONER", "CASE_NUMBER"): "files",
+            ("COURT", "JUDGMENT"): "issues",
+            ("DATE", "JUDGMENT"): "date_of",
+            ("COURT", "CASE_NUMBER"): "hears",
+            ("STATUTE", "JUDGMENT"): "applied_in",
+            ("PRECEDENT", "STATUTE"): "interprets",
             ("OTHER_PERSON", "JUDGMENT"): "mentioned_in",
-            ("GPE", "JUDGMENT"): "location_of",
-            # Add more as needed
+            ("GPE", "JUDGMENT"): "jurisdiction_for"
         }
-
-        # Extract edges (use relation map for labels)
+        
+        # Create a graph for community detection and analysis
+        G = nx.Graph()
+        
+        # Add nodes to the graph
+        for node in nodes:
+            G.add_node(
+                node["id"], 
+                label=node["label"], 
+                type=node["type"], 
+                start_char=node["start_char"]
+            )
+        
+        # Extract edges based on multiple methods
         edges = []
-        for i in range(len(combined_doc.ents) - 1):
-            source_ent = combined_doc.ents[i]
-            target_ent = combined_doc.ents[i + 1]
-            source_id = f"{source_ent.label_}:{source_ent.start_char}:{source_ent.end_char}"
-            target_id = f"{target_ent.label_}:{target_ent.start_char}:{target_ent.end_char}"
-            # Determine relation type
-            relation = entity_relation_map.get((source_ent.label_, target_ent.label_), "related")
-            edges.append({
-                "source": source_id,
-                "target": target_id,
-                "label": relation
-            })
-
-        # If spaCy custom relations are present, add them as well
-        if hasattr(combined_doc._, 'relations'):
-            for rel in combined_doc._.relations:
-                source = rel.get('source')
-                target = rel.get('target')
-                label = rel.get('label', 'related')
-                if source and target:
-                    edges.append({
-                        "source": source,
-                        "target": target,
-                        "label": label
-                    })
+        
+        # Method 1: Proximity-based relationships
+        # Connect entities that appear close to each other
+        proximity_threshold = 200  # Characters apart
+        for i, node1 in enumerate(nodes):
+            for j, node2 in enumerate(nodes[i+1:], i+1):
+                if abs(node1["start_char"] - node2["start_char"]) <= proximity_threshold:
+                    # Check if we have a predefined relationship
+                    rel_type = relationship_patterns.get((node1["type"], node2["type"]))
+                    
+                    if rel_type:
+                        edge = {
+                            "source": node1["id"],
+                            "target": node2["id"],
+                            "label": rel_type,
+                            "weight": 1.0,
+                            "confidence": 0.8
+                        }
+                        edges.append(edge)
+                        G.add_edge(node1["id"], node2["id"], label=rel_type, weight=1.0)
+                        
+                    # Also connect entities of the same type that are close
+                    elif node1["type"] == node2["type"]:
+                        edge = {
+                            "source": node1["id"],
+                            "target": node2["id"],
+                            "label": "related",
+                            "weight": 0.7,
+                            "confidence": 0.6
+                        }
+                        edges.append(edge)
+                        G.add_edge(node1["id"], node2["id"], label="related", weight=0.7)
+        
+        # Method 2: Section-based relationships
+        # Connect entities that appear in the same document section
+        section_entities = defaultdict(list)
+        for node in nodes:
+            section_entities[node["section"]].append(node["id"])
+        
+        for section, entities in section_entities.items():
+            if len(entities) >= 2:
+                for i, entity1 in enumerate(entities):
+                    for entity2 in entities[i+1:]:
+                        node1_type = next(n["type"] for n in nodes if n["id"] == entity1)
+                        node2_type = next(n["type"] for n in nodes if n["id"] == entity2)
+                        
+                        # Check if we already have this edge
+                        if not G.has_edge(entity1, entity2):
+                            rel_type = relationship_patterns.get((node1_type, node2_type))
+                            if rel_type:
+                                edge = {
+                                    "source": entity1,
+                                    "target": entity2,
+                                    "label": rel_type,
+                                    "weight": 0.8,
+                                    "confidence": 0.7
+                                }
+                                edges.append(edge)
+                                G.add_edge(entity1, entity2, label=rel_type, weight=0.8)
+        
+        # Method 3: Semantic pattern matching for special relationships
+        self._add_semantic_relationships(combined_doc.text, nodes, edges, G)
+        
+        # Method 4: Type-specific relationships
+        self._add_type_specific_relationships(entity_categories, nodes, edges, G)
+        
+        # Detect communities for clustering
+        partition = {}  # Ensure partition is always defined
+        if len(G.nodes()) > 2:
+            try:
+                import community as community_louvain
+                partition = community_louvain.best_partition(G)
+                nx.set_node_attributes(G, partition, 'community')
+                
+                # Add community information to nodes
+                for i, node in enumerate(nodes):
+                    nodes[i]['community'] = partition.get(node['id'], 0)
+            except ImportError:
+                # Skip community detection if package not available
+                pass
+        
+        # Calculate centrality to identify key entities
+        if len(G.nodes()) > 0:
+            try:
+                centrality = nx.betweenness_centrality(G) 
+                nx.set_node_attributes(G, centrality, 'centrality')
+                
+                # Add centrality scores to nodes
+                for i, node in enumerate(nodes):
+                    nodes[i]['centrality'] = centrality.get(node['id'], 0)
+            except:
+                # Default centrality values if calculation fails
+                for i, node in enumerate(nodes):
+                    nodes[i]['centrality'] = 0.5
+        
         # Prepare output for frontend visualization
         graph_data = {
             "nodes": nodes,
-            "edges": edges
+            "edges": edges,
+            "statistics": {
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+                "entity_type_counts": {ent_type: len(ids) for ent_type, ids in entity_categories.items()},
+                "community_count": max(partition.values()) + 1 if partition else 1
+            },
+            "key_entities": self._extract_key_entities(G)
         }
+        
         return graph_data
+
+    def _get_paragraph_index(self, text, char_pos):
+        """Identify which paragraph an entity belongs to"""
+        paragraphs = text.split('\n\n')
+        current_pos = 0
+        
+        for i, para in enumerate(paragraphs):
+            if current_pos <= char_pos < current_pos + len(para):
+                return i
+            current_pos += len(para) + 2  # +2 for the '\n\n'
+        
+        return 0  # Default to first paragraph
+
+    def _identify_document_section(self, text, char_pos):
+        """Identify which section of the legal document an entity belongs to"""
+        sections = [
+            "PREAMBLE", "FACTS", "ARGUMENTS", "ISSUES", 
+            "ANALYSIS", "REASONING", "JUDGMENT", "CONCLUSION"
+        ]
+        
+        # Simple heuristic: check presence of section keywords before the entity
+        text_before = text[:char_pos].upper()
+        
+        for section in reversed(sections):  # Check from the end to find closest section
+            if section in text_before:
+                return section
+        
+        return "BODY"  # Default section
+
+    def _add_semantic_relationships(self, text, nodes, edges, G):
+        """Add relationships based on semantic patterns in legal text"""
+        # Pattern for "cited by"
+        citation_patterns = [
+            r"([A-Za-z\s]+)\s+cited\s+([A-Za-z\s]+)",
+            r"([A-Za-z\s]+)\s+relies\s+on\s+([A-Za-z\s]+)",
+            r"([A-Za-z\s]+)\s+refers\s+to\s+([A-Za-z\s]+)",
+            r"as\s+held\s+in\s+([A-Za-z\s]+)"
+        ]
+        
+        # Pattern for "interpreted by"
+        interpretation_patterns = [
+            r"([A-Za-z\s]+)\s+interpreted\s+([A-Za-z\s]+)",
+            r"interpretation\s+of\s+([A-Za-z\s]+)\s+by\s+([A-Za-z\s]+)",
+            r"([A-Za-z\s]+)\s+construed\s+([A-Za-z\s]+)"
+        ]
+        
+        # Process semantic patterns
+        import re
+        for pattern_list, relation_type in [
+            (citation_patterns, "cites"),
+            (interpretation_patterns, "interprets")
+        ]:
+            for pattern in pattern_list:
+                matches = re.finditer(pattern, text, re.IGNORECASE)
+                for match in matches:
+                    # Try to find nodes that match the entities in the pattern
+                    for i, node1 in enumerate(nodes):
+                        if node1["label"] in match.group(0):
+                            for j, node2 in enumerate(nodes):
+                                if i != j and node2["label"] in match.group(0):
+                                    if not G.has_edge(node1["id"], node2["id"]):
+                                        edge = {
+                                            "source": node1["id"],
+                                            "target": node2["id"],
+                                            "label": relation_type,
+                                            "weight": 0.9,
+                                            "confidence": 0.8
+                                        }
+                                        edges.append(edge)
+                                        G.add_edge(node1["id"], node2["id"], label=relation_type, weight=0.9)
+
+    def _add_type_specific_relationships(self, entity_categories, nodes, edges, G):
+        """Add relationships specific to legal entity types"""
+        # Connect all PROVISIONS to their STATUTE
+        if entity_categories["STATUTE"] and entity_categories["PROVISION"]:
+            for statute_id in entity_categories["STATUTE"]:
+                statute_node = next(n for n in nodes if n["id"] == statute_id)
+                
+                for provision_id in entity_categories["PROVISION"]:
+                    provision_node = next(n for n in nodes if n["id"] == provision_id)
+                    
+                    # Connect if the provision likely belongs to this statute
+                    # (Simple heuristic - check if statute name appears in context)
+                    if statute_node["label"].lower() in provision_node["context"].lower():
+                        if not G.has_edge(statute_id, provision_id):
+                            edge = {
+                                "source": statute_id,
+                                "target": provision_id,
+                                "label": "contains",
+                                "weight": 1.0,
+                                "confidence": 0.9
+                            }
+                            edges.append(edge)
+                            G.add_edge(statute_id, provision_id, label="contains", weight=1.0)
+        
+        # Connect PETITIONER and RESPONDENT in the same case
+        if entity_categories["PETITIONER"] and entity_categories["RESPONDENT"]:
+            for petitioner_id in entity_categories["PETITIONER"]:
+                for respondent_id in entity_categories["RESPONDENT"]:
+                    if not G.has_edge(petitioner_id, respondent_id):
+                        edge = {
+                            "source": petitioner_id,
+                            "target": respondent_id,
+                            "label": "versus",
+                            "weight": 1.0,
+                            "confidence": 0.95
+                        }
+                        edges.append(edge)
+                        G.add_edge(petitioner_id, respondent_id, label="versus", weight=1.0)
+        
+        # Connect JUDGES to COURTS
+        if entity_categories["JUDGE"] and entity_categories["COURT"]:
+            for judge_id in entity_categories["JUDGE"]:
+                for court_id in entity_categories["COURT"]:
+                    if not G.has_edge(judge_id, court_id):
+                        edge = {
+                            "source": judge_id,
+                            "target": court_id,
+                            "label": "presides_in",
+                            "weight": 0.9,
+                            "confidence": 0.85
+                        }
+                        edges.append(edge)
+                        G.add_edge(judge_id, court_id, label="presides_in", weight=0.9)
+        
+        # Connect PRECEDENTS to relevant STATUTES
+        if entity_categories["PRECEDENT"] and entity_categories["STATUTE"]:
+            for precedent_id in entity_categories["PRECEDENT"]:
+                precedent_node = next(n for n in nodes if n["id"] == precedent_id)
+                
+                for statute_id in entity_categories["STATUTE"]:
+                    statute_node = next(n for n in nodes if n["id"] == statute_id)
+                    
+                    # Connect if the statute appears in the precedent's context
+                    if statute_node["label"].lower() in precedent_node["context"].lower():
+                        if not G.has_edge(precedent_id, statute_id):
+                            edge = {
+                                "source": precedent_id,
+                                "target": statute_id,
+                                "label": "interprets",
+                                "weight": 0.8,
+                                "confidence": 0.7
+                            }
+                            edges.append(edge)
+                            G.add_edge(precedent_id, statute_id, label="interprets", weight=0.8)
+
+    def _extract_key_entities(self, nodes, limit=5):
+        """Extract the most important entities in each category based on centrality"""
+        # Group nodes by type
+        nodes_by_type = {}
+        for node in nodes:
+            if node["type"] not in nodes_by_type:
+                nodes_by_type[node["type"]] = []
+            nodes_by_type[node["type"]].append(node)
+        
+        # Sort each group by centrality and take top N
+        key_entities = {}
+        for entity_type, entity_nodes in nodes_by_type.items():
+            if hasattr(entity_nodes[0], 'centrality'):
+                sorted_nodes = sorted(entity_nodes, key=lambda x: x.get("centrality", 0), reverse=True)
+            else:
+                sorted_nodes = entity_nodes  # If no centrality, use as is
+                
+            key_entities[entity_type] = sorted_nodes[:limit]
+        
+        return key_entities
 
     def generate_chat_graph(self, chat_history, document_ids=None, graph_name=None):
         """
@@ -550,7 +929,9 @@ class KnowledgeGraphService:
         # Use Louvain community detection algorithm
         if len(G) > 1:  # Need at least 2 nodes
             try:
-                communities = nx.community.louvain_communities(G)
+                import community as community_louvain
+                partition = community_louvain.best_partition(G)
+                nx.set_node_attributes(G, partition, 'community')
                 
                 # Add community attribute to nodes
                 community_mapping = {}

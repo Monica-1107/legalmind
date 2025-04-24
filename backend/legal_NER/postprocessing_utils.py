@@ -120,7 +120,7 @@ def create_precedent_clusters(precedent_breakup, threshold):
 
 def split_precedents(precedents):
     precedent_breakup = {}
-    regex_vs = r'\b(?i)((v(\.|/)*s*\.*)|versus)\s+'
+    regex_vs = r'\b((v(\.|/)*s*\.*)|versus)\s+'
     regex_cit = '(\(\d+\)|\d+|\[\d+\])\s*(\(\d+\)|\d+|\[\d+\])*\s*[A-Z\.]+\s*(\(\d+\)|\d+|\[\d+\])*\s*'
 
     for entity in precedents:
@@ -131,7 +131,7 @@ def split_precedents(precedents):
         else:
             cit = ''
             text = entity.text
-        vs = re.search(regex_vs, text)
+        vs = re.search(regex_vs, text, re.IGNORECASE)
         if vs:
             pet = (text[:vs.start()].strip())
             res = (text[vs.end():].strip())
@@ -911,6 +911,6 @@ def postprocessing(nlp_doc):
             nlp_doc.user_data['provision_statute_pairs'] = pro_sta_clusters
             nlp_doc.user_data['statute_clusters'] = stat_clusters
 
-
+            print('faasdsadaas')
 
             return nlp_doc

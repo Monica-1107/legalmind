@@ -27,7 +27,7 @@ def extract_entities_from_judgment_text(txt,legal_nlp,nlp_preamble_splitting,tex
         doc_judgment=get_sentence_docs(judgment_doc,legal_nlp)
 
     print("Creating doc for judgement  took " + str(time.time() - judgement_start_time))
-    print(len(doc_judgment.ents),doc_judgment.ents)
+    print(len(doc_judgment.ents))
 
     ######### process preamable
     preamble_start_time = time.time()
@@ -41,10 +41,13 @@ def extract_entities_from_judgment_text(txt,legal_nlp,nlp_preamble_splitting,tex
 
     try:
         if do_postprocess:
-            combined_doc=postprocessing(combined_doc)
-    except:
-        msg.warn(
-            'There was some issue while performing postprocessing, skipping postprocessing...')
+            combined_doc = postprocessing(combined_doc)
+            print("Postprocessing took " + str(time.time() - combining_start_time))
+    except Exception as e:
+        import traceback
+        print("Error during postprocessing:", e)
+        traceback.print_exc()
+        msg.warn('There was some issue while performing postprocessing, skipping postprocessing...')
     return combined_doc
 
 

@@ -42,6 +42,10 @@ export default function KnowledgeGraph() {
   const [filteredData, setFilteredData] = useState(null)
   const [graphDomain, setGraphDomain] = useState("legal")
   const [token, setToken] = useState<string>("")
+  const [connectedNodes, setConnectedNodes] = useState<any[]>([]);
+  const [nodeQuery, setNodeQuery] = useState("");
+  const [nodeAnswer, setNodeAnswer] = useState("");
+  const [isAsking, setIsAsking] = useState(false);
   const graphRef = useRef(null)
   const fileInputRef = useRef(null)
   const { toast } = useToast()
@@ -229,9 +233,58 @@ export default function KnowledgeGraph() {
     }
   }
 
-  const handleNodeClick = (node) => {
-    setSelectedNode(node)
-  }
+  const handleNodeClick = (node: any) => {
+    setSelectedNode(node);
+    console.log(filteredData?.nodes, filteredData?.links);
+    if (!filteredData) return;
+    // Find connected nodes (neighbors)
+    const neighbors = filteredData.links
+  .filter(link => {
+    const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+    const targetId = typeof link.target === "object" ? link.target.id : link.target;
+    return sourceId === node.id || targetId === node.id;
+  })
+  .map(link => {
+    const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+    const targetId = typeof link.target === "object" ? link.target.id : link.target;
+    return sourceId === node.id ? targetId : sourceId;
+  })
+  .map(id => filteredData.nodes.find(n => n.id === id))
+  .filter(Boolean);
+    console.log(neighbors,'the facacsacac')
+    setConnectedNodes(neighbors);
+    setNodeQuery("");
+    setNodeAnswer("");
+  };
+
+  const handleAskAboutNode = async (nquery:string) => {
+    if (!selectedNode) return;
+    setIsAsking(true);
+    setNodeAnswer("");
+    setNodeQuery(nquery)
+    try {
+      // Compose graph fragment: node + neighbors
+      const nodeFragment = {
+        nodes: [selectedNode, ...connectedNodes],
+        links: filteredData.links.filter(
+          link => [selectedNode.id, ...connectedNodes.map(n => n.id)].includes(link.source)
+            && [selectedNode.id, ...connectedNodes.map(n => n.id)].includes(link.target)
+        )
+      };
+      const response = await enhanceGraphWithLLM(
+        nodeFragment,
+        process.env.NEXT_PUBLIC_OPENROUTER_API_KEY,
+        //null, // no file needed
+        process.env.NEXT_PUBLIC_OPENROUTER_API_URL,
+        nquery,
+        process.env.NEXT_PUBLIC_OPENROUTER_MODEL , // use default model
+      );
+      setNodeAnswer(response);
+    } catch (e) {
+      setNodeAnswer("Error getting answer from LLM");
+    }
+    setIsAsking(false);
+  };
 
   const handleZoomIn = () => {
     if (graphRef.current && zoomLevel < 2) {
@@ -570,6 +623,37 @@ export default function KnowledgeGraph() {
                           )}
                         </div>
                         <div className="w-8 h-8 rounded-full" style={{ backgroundColor: getNodeColor(selectedNode) }} />
+                      </div>
+                      <div className="flex flex-col gap-2 mt-2">
+                        <div>
+                          <span className="font-semibold text-sm">Connected Nodes:</span>
+                          <ul className="list-disc list-inside ml-4">
+                            {connectedNodes.length === 0 && <li className="text-xs text-gray-400">No direct connections</li>}
+                            {connectedNodes.map((n) => (
+                              <li key={n.id} className="text-xs">
+                                <span className="font-medium">{n.label}</span>
+                                <span className="ml-2 px-2 py-0.5 rounded text-xs" style={{ background: ENTITY_COLORS[(typeof n.type === 'string' ? n.type.replace(/\s+/g, '_').replace(/-/g, '_').toUpperCase() : n.type)] || '#222', color: '#000' }}>{n.type}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Input
+                            value={nodeQuery}
+                            onChange={e => setNodeQuery(e.target.value)}
+                            placeholder="Ask about this node and its connections..."
+                            className="flex-1"
+                            disabled={isAsking}
+                          />
+                          <Button onClick={() => handleAskAboutNode(nodeQuery)} disabled={isAsking || !nodeQuery} size="sm">
+                            {isAsking ? "Asking..." : "Ask"}
+                          </Button>
+                        </div>
+                        {nodeAnswer && (
+                          <div className="bg-gray-900/80 rounded p-2 mt-2 text-xs border border-gray-700 whitespace-pre-line">
+                            {nodeAnswer}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

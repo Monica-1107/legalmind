@@ -1,7 +1,7 @@
 // openrouter.ts
 // Utility to call OpenRouter API from the frontend
 
-export async function enhanceGraphWithLLM(graph: any, file: any, apiKey: string, apiUrl: string, model: string = "openchat/openchat-3.5-0106") {
+export async function enhanceGraphWithLLM(graph: any, apiKey: any, apiUrl: any, query:string,model: any) {
   const headers = {
     "Authorization": `Bearer ${apiKey}`,
     "Content-Type": "application/json",
@@ -11,14 +11,16 @@ export async function enhanceGraphWithLLM(graph: any, file: any, apiKey: string,
   const data = {
     model,
     messages: [
-      { role: "system", content: "You are a legal Knowledge Graph assistant providing information on legal matters and enhancing the current graph. Be helpful, professional, and informative. Output should be only in the graph dictionary(see user content for graph format)." },
-      { role: "user", content: JSON.stringify(graph)+JSON.stringify(file) }
+      { role: "system", content: "You are a legal Knowledge Graph assistant providing information on legal matters and enhancing the current graph understanding. Be helpful, professional, and informative." },
+      { role: "user", content: query+JSON.stringify(graph) }
     ],
     temperature: 0.3,
     max_tokens: 2000
   }
 
   try {
+    console.log('yayyyyaa')
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers,
@@ -31,7 +33,7 @@ export async function enhanceGraphWithLLM(graph: any, file: any, apiKey: string,
     // The LLM output is expected to be a JSON graph in the content
     const content = result.choices?.[0]?.message?.content
     console.log(content,'fa')
-    return JSON.parse(content)
+    return content
   } catch (e: any) {
     throw new Error("Error calling OpenRouter API: " + e.message)
   }
