@@ -1,0 +1,27 @@
+{
+  "id": "94f06712-dab6-4070-a13f-f17dcd3cebfb",
+  "name": "legal_document_graph_20250423_211825",
+  "created_at": "2025-04-23T21:18:25.493550",
+  "document_ids": [
+    "68090bc8a6b23decd950636b"
+  ],
+  "document_count": 1,
+  "domain": "legal",
+  "entity_count": 0,
+  "relationship_count": 0,
+  "entity_types": {
+    "document": 1
+  },
+  "relationship_types": {},
+  "nodes": [
+    {
+      "id": "doc_68090bc8a6b23decd950636b",
+      "label": "35b51681-a059-4abc-b4a3-8b89bba7e14c.docx",
+      "type": "document",
+      "normalized_value": "",
+      "centrality": 0,
+      "community": 0
+    }
+  ],
+  "edges": []
+}

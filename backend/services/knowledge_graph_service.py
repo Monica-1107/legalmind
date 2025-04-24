@@ -5,102 +5,17 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import uuid
 from config import Config
+from legal_NER.legal_ner import extract_entities_from_judgment_text
+import spacy
+import re
 
 class KnowledgeGraphService:
     """Service for generating and managing knowledge graphs from documents and chat sessions."""
     
     def __init__(self):
-        self.graph_dir = os.path.join(Config.UPLOAD_FOLDER, 'knowledge_graphs')
+        self.graph_dir = os.path.join("D:/Legal_mind/backend/services/upload_know","graphs")
         os.makedirs(self.graph_dir, exist_ok=True)
     
-    # def generate_document_graph(self, documents, graph_name=None):
-    #     """
-    #     Generate a knowledge graph from one or more documents.
-        
-    #     Args:
-    #         documents (list): List of document objects with content and metadata
-    #         graph_name (str, optional): Custom name for the graph. Defaults to None.
-            
-    #     Returns:
-    #         dict: Graph information including ID, name, and file path
-    #     """
-    #     # Create a new graph
-    #     G = nx.Graph()
-        
-    #     # Process each document
-    #     for doc in documents:
-    #         # Add document node
-    #         doc_id = str(doc.get('_id', 'unknown'))
-    #         doc_node_id = f"doc_{doc_id}"
-    #         G.add_node(doc_node_id, 
-    #                    label=doc.get('filename', f"Document {doc_id}"),
-    #                    type='document')
-            
-    #         # Extract entities and relationships from document content
-    #         content = doc.get('content', '')
-    #         if not content and 'file_path' in doc:
-    #             # Try to read content from file if not in document
-    #             try:
-    #                 with open(doc['file_path'], 'r', encoding='utf-8') as f:
-    #                     content = f.read()
-    #             except Exception as e:
-    #                 print(f"Error reading file {doc['file_path']}: {e}")
-    #                 content = f"Document {doc_id}"
-            
-    #         entities, relationships = self._extract_entities_and_relationships(content)
-            
-    #         # Add entities as nodes and connect to document
-    #         for entity in entities:
-    #             entity_node_id = f"entity_{doc_id}_{entity['id']}"
-    #             G.add_node(entity_node_id, 
-    #                        label=entity['label'], 
-    #                        type=entity['type'])
-    #             G.add_edge(doc_node_id, entity_node_id, label='contains')
-            
-    #         # Add relationships between entities
-    #         for rel in relationships:
-    #             source_id = f"entity_{doc_id}_{rel['source']}"
-    #             target_id = f"entity_{doc_id}_{rel['target']}"
-    #             if source_id in G and target_id in G:
-    #                 G.add_edge(source_id, target_id, 
-    #                            label=rel['label'],
-    #                            weight=rel.get('weight', 1.0))
-        
-    #     # Generate a unique ID for the graph
-    #     graph_id = str(uuid.uuid4())
-        
-    #     # Generate a name if not provided
-    #     if not graph_name:
-    #         graph_name = f"document_graph_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-    #     # Save the graph as JSON
-    #     graph_data = {
-    #         'id': graph_id,
-    #         'name': graph_name,
-    #         'created_at': datetime.now().isoformat(),
-    #         'document_ids': [str(doc.get('_id', '')) for doc in documents],
-    #         'nodes': [{'id': n, 'label': G.nodes[n]['label'], 'type': G.nodes[n]['type']} 
-    #                  for n in G.nodes()],
-    #         'edges': [{'source': u, 'target': v, 'label': G.edges[u, v]['label']} 
-    #                  for u, v in G.edges()]
-    #     }
-        
-    #     # Save to file
-    #     file_path = os.path.join(self.graph_dir, f"{graph_id}.json")
-    #     with open(file_path, 'w') as f:
-    #         json.dump(graph_data, f, indent=2)
-        
-    #     # Generate visualization
-    #     self._generate_visualization(G, graph_id)
-        
-    #     return {
-    #         'id': graph_id,
-    #         'name': graph_name,
-    #         'file_path': file_path,
-    #         'visualization_path': os.path.join(self.graph_dir, f"{graph_id}.png"),
-    #         'node_count': len(G.nodes()),
-    #         'edge_count': len(G.edges())
-    #     }
     def generate_document_graph(self, documents, graph_name=None, domain="legal"):
         """
         Generate a knowledge graph from one or more legal documents.
@@ -111,215 +26,80 @@ class KnowledgeGraphService:
             domain (str, optional): Domain context for entity extraction. Defaults to "legal".
             
         Returns:
-            dict: Graph information including ID, name, and file path
+            dict: Graph data with nodes and edges for visualization
         """
-        # Create a new graph
-        G = nx.Graph()
-        
-        # Define legal entity types
-        legal_entity_types = {
-            'CASE': 'case_citation',
-            'STATUTE': 'statute_reference',
-            'COURT': 'court',
-            'JUDGE': 'judicial_entity',
-            'JURISDICTION': 'jurisdiction',
-            'PARTY': 'legal_party',
-            'PRINCIPLE': 'legal_principle',
-            'DATE': 'legal_date',
-            'CLAUSE': 'legal_clause',
-            'PROCEDURE': 'legal_procedure'
+        import spacy
+        legal_nlp = spacy.load('en_legal_ner_trf')
+        preamble_spiltting_nlp = spacy.load('en_core_web_sm')
+        run_type = 'sent'  # trade off between accuracy and runtime
+        do_postprocess = True
+        combined_doc = extract_entities_from_judgment_text(documents[0]["content"], legal_nlp, preamble_spiltting_nlp, run_type, do_postprocess)
+
+        # Extract nodes (entities)
+        nodes = []
+        node_ids = set()
+        for ent in combined_doc.ents:
+            node_id = f"{ent.label_}:{ent.start_char}:{ent.end_char}"
+            if node_id not in node_ids:
+                nodes.append({
+                    "id": node_id,
+                    "label": ent.text,
+                    "type": ent.label_
+                })
+                node_ids.add(node_id)
+
+        # Define possible relation types between entity pairs
+        entity_relation_map = {
+            ("PETITIONER", "CASE_NUMBER"): "files",
+            ("RESPONDENT", "PETITIONER"): "opposes",
+            ("JUDGE", "COURT"): "presides",
+            ("LAWYER", "PETITIONER"): "represents",
+            ("LAWYER", "RESPONDENT"): "represents",
+            ("JUDGE", "JUDGMENT"): "delivers",
+            ("STATUTE", "PROVISION"): "contains",
+            ("PRECEDENT", "JUDGMENT"): "cited_in",
+            ("ORG", "JUDGMENT"): "mentioned_in",
+            ("WITNESS", "CASE_NUMBER"): "testifies_in",
+            ("DATE", "JUDGMENT"): "event_date_of",
+            ("OTHER_PERSON", "JUDGMENT"): "mentioned_in",
+            ("GPE", "JUDGMENT"): "location_of",
+            # Add more as needed
         }
-        
-        # Define legal relationship types
-        legal_relationships = {
-            'CITES': 'cites_case',
-            'GOVERNS': 'governs',
-            'INTERPRETS': 'interprets',
-            'OVERRULES': 'overrules',
-            'DISTINGUISHES': 'distinguishes',
-            'APPLIES': 'applies',
-            'CONTRACTS': 'contracts_with',
-            'AFFIRMS': 'affirms',
-            'REVERSES': 'reverses',
-            'FOLLOWED_BY': 'followed_by'
-        }
-        
-        # Process each document
-        all_entities = {}  # Keep track of unique entities across documents
-        entity_count = 0   # Entity counter for consistent IDs
-        
-        for doc in documents:
-            # Add document node with extended metadata
-            doc_id = str(doc.get('_id', 'unknown'))
-            doc_node_id = f"doc_{doc_id}"
-            
-            # Extract document metadata
-            doc_metadata = {
-                'label': doc.get('filename', f"Document {doc_id}"),
-                'type': 'document',
-                'date': doc.get('date', None),
-                'author': doc.get('author', None),
-                'jurisdiction': doc.get('jurisdiction', None),
-                'doc_type': doc.get('doc_type', 'legal_document'),
-                'case_number': doc.get('case_number', None),
-                'court': doc.get('court', None)
-            }
-            
-            # Add document node with metadata
-            G.add_node(doc_node_id, **doc_metadata)
-            
-            # Extract content from document
-            content = doc.get('content', '')
-            if not content and 'file_path' in doc:
-                try:
-                    with open(doc['file_path'], 'r', encoding='utf-8') as f:
-                        content = f.read()
-                except Exception as e:
-                    print(f"Error reading file {doc['file_path']}: {e}")
-                    content = f"Document {doc_id}"
-            
-            # Advanced entity and relationship extraction for legal domain
-            entities, relationships = self._extract_legal_entities_and_relationships(
-                content,
-                legal_entity_types,
-                legal_relationships
-            )
-            
-            # Add entities as nodes and connect to document
-            for entity in entities:
-                # Check if entity already exists (deduplicate)
-                entity_key = f"{entity['type']}:{entity['label']}"
-                if entity_key in all_entities:
-                    entity_node_id = all_entities[entity_key]
-                else:
-                    entity_count += 1
-                    entity_node_id = f"entity_{entity_count}"
-                    all_entities[entity_key] = entity_node_id
-                    
-                    # Add entity attributes
-                    entity_attrs = {
-                        'label': entity['label'],
-                        'type': entity['type'],
-                        'confidence': entity.get('confidence', 1.0),
-                        'normalized_value': entity.get('normalized_value', entity['label']),
-                        'context': entity.get('context', ''),
-                        'frequency': entity.get('frequency', 1)
-                    }
-                    
-                    G.add_node(entity_node_id, **entity_attrs)
-                
-                # Connect entity to document with context
-                edge_data = {
-                    'label': 'contains',
-                    'context': entity.get('context', ''),
-                    'position': entity.get('position', []),
-                    'weight': entity.get('frequency', 1) / 10  # Normalize weight
-                }
-                G.add_edge(doc_node_id, entity_node_id, **edge_data)
-            
-            # Add relationships between entities with improved context
-            for rel in relationships:
-                # Get entity node IDs
-                source_key = f"{rel['source_type']}:{rel['source']}"
-                target_key = f"{rel['target_type']}:{rel['target']}"
-                
-                if source_key in all_entities and target_key in all_entities:
-                    source_id = all_entities[source_key]
-                    target_id = all_entities[target_key]
-                    
-                    # Add relationship with context and attributes
-                    edge_data = {
-                        'label': rel['label'],
-                        'weight': rel.get('weight', 1.0),
-                        'context': rel.get('context', ''),
-                        'confidence': rel.get('confidence', 0.8),
-                        'relation_type': rel.get('relation_type', 'legal_relation'),
-                        'sentence': rel.get('sentence', '')
-                    }
-                    
-                    G.add_edge(source_id, target_id, **edge_data)
-        
-        # Add citation network - connect cases that cite each other
-        self._build_citation_network(G, all_entities)
-        
-        # Add precedent relationships
-        self._add_precedent_relationships(G, all_entities)
-        
-        # Apply community detection for legal domains
-        self._detect_legal_communities(G)
-        
-        # Generate a unique ID for the graph
-        graph_id = str(uuid.uuid4())
-        
-        # Generate a name if not provided
-        if not graph_name:
-            graph_name = f"legal_document_graph_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        # Enhanced metadata for the graph
+
+        # Extract edges (use relation map for labels)
+        edges = []
+        for i in range(len(combined_doc.ents) - 1):
+            source_ent = combined_doc.ents[i]
+            target_ent = combined_doc.ents[i + 1]
+            source_id = f"{source_ent.label_}:{source_ent.start_char}:{source_ent.end_char}"
+            target_id = f"{target_ent.label_}:{target_ent.start_char}:{target_ent.end_char}"
+            # Determine relation type
+            relation = entity_relation_map.get((source_ent.label_, target_ent.label_), "related")
+            edges.append({
+                "source": source_id,
+                "target": target_id,
+                "label": relation
+            })
+
+        # If spaCy custom relations are present, add them as well
+        if hasattr(combined_doc._, 'relations'):
+            for rel in combined_doc._.relations:
+                source = rel.get('source')
+                target = rel.get('target')
+                label = rel.get('label', 'related')
+                if source and target:
+                    edges.append({
+                        "source": source,
+                        "target": target,
+                        "label": label
+                    })
+        # Prepare output for frontend visualization
         graph_data = {
-            'id': graph_id,
-            'name': graph_name,
-            'created_at': datetime.now().isoformat(),
-            'document_ids': [str(doc.get('_id', '')) for doc in documents],
-            'document_count': len(documents),
-            'domain': domain,
-            'entity_count': len(all_entities),
-            'relationship_count': sum(1 for u, v in G.edges() if G.nodes[u].get('type') != 'document' and G.nodes[v].get('type') != 'document'),
-            'entity_types': self._count_entity_types(G),
-            'relationship_types': self._count_relationship_types(G),
-            'nodes': [
-                {
-                    'id': n,
-                    'label': G.nodes[n].get('label', ''),
-                    'type': G.nodes[n].get('type', ''),
-                    'normalized_value': G.nodes[n].get('normalized_value', ''),
-                    'centrality': G.nodes[n].get('centrality', 0),
-                    'community': G.nodes[n].get('community', 0)
-                } 
-                for n in G.nodes()
-            ],
-            'edges': [
-                {
-                    'source': u,
-                    'target': v,
-                    'label': G.edges[u, v].get('label', ''),
-                    'weight': G.edges[u, v].get('weight', 1.0),
-                    'confidence': G.edges[u, v].get('confidence', 1.0)
-                } 
-                for u, v in G.edges()
-            ]
+            "nodes": nodes,
+            "edges": edges
         }
-        
-        # Save to file with more detailed information
-        file_path = os.path.join(self.graph_dir, f"{graph_id}.json")
-        with open(file_path, 'w') as f:
-            json.dump(graph_data, f, indent=2)
-        
-        # Generate enhanced legal visualization
-        self._generate_legal_visualization(G, graph_id)
-        
-        # Create a simplified version for lightweight access
-        simplified_graph = self._create_simplified_graph(G)
-        simplified_path = os.path.join(self.graph_dir, f"{graph_id}_simplified.json")
-        with open(simplified_path, 'w') as f:
-            json.dump(simplified_graph, f, indent=2)
-        
-        return {
-            'id': graph_id,
-            'name': graph_name,
-            'domain': domain,
-            'file_path': file_path,
-            'simplified_path': simplified_path,
-            'visualization_path': os.path.join(self.graph_dir, f"{graph_id}.png"),
-            'interactive_html': os.path.join(self.graph_dir, f"{graph_id}.html"),
-            'node_count': len(G.nodes()),
-            'edge_count': len(G.edges()),
-            'entity_count': len(all_entities),
-            'document_count': len(documents),
-            'key_entities': self._extract_key_entities(G, limit=10),
-            'entity_types': self._count_entity_types(G),
-            'communities': self._get_community_summary(G)
-        }
+        return graph_data
+
     def generate_chat_graph(self, chat_history, document_ids=None, graph_name=None):
         """
         Generate a knowledge graph from chat history.

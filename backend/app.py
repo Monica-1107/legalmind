@@ -553,7 +553,7 @@ def chat(user_id):
         return jsonify({"message": str(e)}), 400
 
 @app.route('/api/graphs/document', methods=['POST'])
-#@token_required
+@token_required
 def create_document_graph(user_id):
     """Create a document graph"""
     data = request.json
@@ -562,13 +562,10 @@ def create_document_graph(user_id):
         return jsonify({"message": "Document ID is required"}), 400
     
     document_id = data.get('document_id')
-    graph_type = data.get('graph_type', 'concept')
-    
     # Get document
     document = get_document_by_id(document_id)
     if not document:
         return jsonify({"message": "Document not found"}), 404
-    
     # Check if user has access to the document
     file_with_doc = db.files.find_one({
         "document_id": document_id,
@@ -579,12 +576,11 @@ def create_document_graph(user_id):
     
     try:
         # Create graph
-        graph_data = knowledge_graph_service.create_document_graph(
-            document_id=document_id,
-            graph_type=graph_type
+        graph_data = knowledge_graph_service.generate_document_graph(
+            documents=[document]
         )
-        
-        return jsonify(convert_mongo_doc_for_json(graph_data)), 201
+        print(graph_data)
+        return jsonify(graph_data), 201
     except Exception as e:
         return jsonify({"message": str(e)}), 400
 

@@ -42,3 +42,18 @@ export async function chatWithDocument(payload: { message: string; document_id: 
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function create_graph(payload:{document_id: string,
+  graph_type: string,
+  domain: string,}, token: string) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/graphs/document`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
