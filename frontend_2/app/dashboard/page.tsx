@@ -9,13 +9,35 @@ import { Upload, MessageSquare, FileText, BarChart4, Users, Clock, ChevronRight,
 import { useAuth } from "@/frontend/context/AuthContext"
 import { HypotheticalScenarioBuilder } from "@/components/dashboard/HypotheticalScenarioBuilder"
 import { HierarchicalAnalysis } from "@/components/dashboard/HierarchicalAnalysis"
+import { useRouter } from "next/navigation"
+
+type ActivityItem = {
+  id: string;
+  type: string;
+  description: string;
+  time: string;
+  timeAgo?: string;
+};
+
+type DocumentItem = {
+  id: string;
+  title?: string;
+  filename?: string;
+};
+
+type Analytics = {
+  documents_analyzed: number;
+  chat_sessions: number;
+  hypothetical_scenarios: number;
+};
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
-  const [activity, setActivity] = useState([])
-  const [documents, setDocuments] = useState([]);
-  const [analytics, setAnalytics] = useState({documents_analyzed: 0, chat_sessions: 0, hypothetical_scenarios: 0});
+  const [activity, setActivity] = useState<ActivityItem[]>([])
+  const [documents, setDocuments] = useState<DocumentItem[]>([])
+  const [analytics, setAnalytics] = useState<Analytics>({documents_analyzed: 0, chat_sessions: 0, hypothetical_scenarios: 0})
   console.log(user)
   const [token, setToken] = useState("")
   useEffect(() => {
@@ -31,7 +53,7 @@ export default function Dashboard() {
         },
       })
         .then((res) => res.json())
-        .then((data) => {
+        .then((data: ActivityItem[]) => {
           // Format timeAgo for each item
           setActivity(
             data.map((item) => ({
@@ -44,16 +66,16 @@ export default function Dashboard() {
         headers: { "Authorization": `Bearer ${token}` },
       })
         .then((res) => res.json())
-        .then(setDocuments);
+        .then((docs: DocumentItem[]) => setDocuments(docs));
       fetch("http://localhost:5000/api/user/analytics", {
         headers: { "Authorization": `Bearer ${token}` },
       })
         .then((res) => res.json())
-        .then(setAnalytics);
+        .then((a: Analytics) => setAnalytics(a));
     }
   }, [user]);
 
-  function getTimeAgo(isoTime) {
+  function getTimeAgo(isoTime: string) {
     if (!isoTime) return "";
     const now = new Date();
     const date = new Date(isoTime);
@@ -72,14 +94,10 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-white mb-2">Welcome, {user?.name || "User"}</h1>
             <p className="text-gray-400">Your legal dashboard and analysis center</p>
           </div>
-          <div className="flex space-x-2 mt-4 md:mt-0">
-            <Button className="bg-navy-700 hover:bg-navy-600">
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Document
-            </Button>
-            <Button className="bg-gold-500 hover:bg-gold-600 text-navy-900">
+          <div className="flex mt-4 md:mt-0">
+            <Button className="bg-gold-500 hover:bg-gold-600 text-navy-900" onClick={() => router.push("/upload")}>
               <MessageSquare className="mr-2 h-4 w-4" />
-              New Analysis
+              New chat
             </Button>
           </div>
         </div>
@@ -100,7 +118,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {activity.map((item) => (
+                    {activity.map((item: ActivityItem) => (
                       <li key={item.id} className="flex items-center text-sm">
                         {item.type === 'document' && <FileText className="h-4 w-4 mr-2 text-gray-400" />}
                         {item.type === 'chat' && <MessageSquare className="h-4 w-4 mr-2 text-gray-400" />}
@@ -119,7 +137,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {documents.map((doc) => (
+                    {documents.map((doc: DocumentItem) => (
                       <li key={doc.id} className="flex items-center text-sm">
                         <FileText className="h-4 w-4 mr-2 text-gray-400" />
                         <span>{doc.title || doc.filename}</span>

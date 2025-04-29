@@ -172,25 +172,6 @@ export default function Navbar() {
             </Button>
           </div>
         </div>
-
-        {/* Breadcrumbs */}
-        <div className="py-2 text-sm">
-          <Link href="/" className="hover:text-gold-500 transition-colors">
-            Home
-          </Link>
-          {breadcrumbs.map((crumb, index) => (
-            <span key={index}>
-              {" "}
-              /{" "}
-              <Link
-                href={`/${breadcrumbs.slice(0, index + 1).join("/")}`}
-                className="hover:text-gold-500 transition-colors"
-              >
-                {crumb}
-              </Link>
-            </span>
-          ))}
-        </div>
       </div>
 
       {/* Mobile Menu */}

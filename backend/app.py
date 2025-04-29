@@ -18,7 +18,8 @@ from services.document_service import process_document
 from services.analysis_service import analyze_document
 from services.chat_service import (
     generate_chat_response, create_chat_session, get_chat_session,
-    get_chat_sessions_by_user, send_chat_message, get_chat_messages
+    get_chat_sessions_by_user, send_chat_message, get_chat_messages,
+    delete_chat_session
 )
 from services.knowledge_graph_service import KnowledgeGraphService
 from services.user_service import (
@@ -288,7 +289,7 @@ def delete_user_chat_session(session_id, user_id):
     if session.get('user_id') != user_id:
         return jsonify({"message": "Access denied"}), 403
     
-    success = delete_chat_session(ObjectId(session_id))
+    success = delete_chat_session(session_id)
     if not success:
         return jsonify({"message": "Failed to delete chat session"}), 500
     
